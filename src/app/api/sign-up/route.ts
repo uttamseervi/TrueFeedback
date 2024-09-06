@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     await dbConnect();
     try {
         const { email, username, password } = await request.json()
+        
 
         const existingUserVerifiedByUsername = await User.findOne({
             username,
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
         });
         if (existingUserVerifiedByUsername) return Response.json({ success: false, message: "Username already taken Please try with new username" }, { status: 400 });
 
-        const verifyCode = Math.floor(100000 + Math.random() * 900000).toString()
+        let verifyCode = Math.floor(100000 + Math.random() * 900000).toString()
 
         const existingUserByEmail = await User.findOne({ email })
         if (existingUserByEmail) {
@@ -48,11 +49,13 @@ export async function POST(request: Request) {
 
             });
             await newUser.save();
+            // console.log("The new user is ", newUser)
         }
         const emailResponse = await sendVerificationEmail(email, username, verifyCode)
         if (!emailResponse.success) return Response.json({
             success: false, message: emailResponse.message
         }, { status: 500 })
+        console.log(emailResponse)
         return Response.json({
             success: true, message: "User registered Successfully Please verify your email"
         }, { status: 200 })
