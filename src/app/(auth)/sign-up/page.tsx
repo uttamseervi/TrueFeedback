@@ -1,101 +1,101 @@
-"use client"
-import React, { useEffect, useState } from "react"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import Link from "next/link"
-import { useDebounceValue } from 'usehooks-ts'
-import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { signUpSchema } from "@/schemas/signUpSchema"
-import axios, { AxiosError } from "axios"
-import { ApiResponse } from "@/types/apiResponse"
-import { Form } from "@/components/ui/form"
+'use client';
 
+import { ApiResponse } from '@/types/apiResponse';
+import { zodResolver } from '@hookform/resolvers/zod';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useDebounceCallback } from 'usehooks-ts'
+import * as z from 'zod';
 
+import { Button } from '@/components/ui/button';
+import {
+    Form,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast'
+import axios, { AxiosError } from 'axios';
+import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { signUpSchema } from '@/schemas/signUpSchema';
 
-
-
-/*
-In this scenario, we need to ensure that the username is unique. 
-To check if the username is unique, we could send a request to the backend as the user types each letter. 
-However, sending many requests for each keystroke is inefficient and can degrade performance. 
-A better approach is to use a custom React hook with debouncing, which delays the backend request until the user has stopped typing for a short period.
-*/
-
-
-
-function Page() {
+export default function SignUpForm() {
     const [username, setUsername] = useState('');
     const [usernameMessage, setUsernameMessage] = useState('');
-    const [checkingUsername, setCheckingUsername] = useState(false);
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const debounced = useDebounceCallback(setUsername, 300);
 
-    const { toast } = useToast()
-    const debouncedUsername = useDebounceValue(username, 300)
     const router = useRouter();
+    const { toast } = useToast();
 
-
-    /*
-        Zod Implementation:
-        The useForm hook supports schema-based validation through built-in resolvers.
-        We can use Zod (or other validation libraries) to define a validation schema and integrate it with useForm
-        by using the zodResolver to validate the form inputs.
-    */
-    // the below line type declaration is completely optional
     const form = useForm<z.infer<typeof signUpSchema>>({
         resolver: zodResolver(signUpSchema),
         defaultValues: {
-            username: "",
-            email: "",
-            password: "",
-        }
+            username: '',
+            email: '',
+            password: '',
+        },
     });
+
     useEffect(() => {
-        const checkUsernameUniqueness = async () => {
-            if (debouncedUsername) {
-                setCheckingUsername(true);
-                setUsernameMessage('');
+        const checkUsernameUnique = async () => {
+            if (username) {
+                setIsCheckingUsername(true);
+                setUsernameMessage(''); // Reset message
                 try {
-                    const response = await axios.get(`/api/check-username-unique?username=${debouncedUsername}`)
-                    setUsernameMessage(response.data.message)
+                    const response = await axios.get<ApiResponse>(
+                        `/api/check-username-unique?username=${username}`
+                    );
+                    setUsernameMessage(response.data.message);
                 } catch (error) {
-                    const axiosErr = error as AxiosError<ApiResponse>
+                    const axiosError = error as AxiosError<ApiResponse>;
                     setUsernameMessage(
-                        axiosErr.response?.data.message ?? "Error while checking username"
-                    )
+                        axiosError.response?.data.message ?? 'Error checking username'
+                    );
                 } finally {
-                    setCheckingUsername(false)
+                    setIsCheckingUsername(false);
                 }
             }
-        }
-        checkUsernameUniqueness()
-    }, [debouncedUsername])
+        };
+        checkUsernameUnique();
+    }, [username]);
 
     const onSubmit = async (data: z.infer<typeof signUpSchema>) => {
-        setIsSubmitting(true)
+        setIsSubmitting(true);
         try {
-            const response = await axios.post<ApiResponse>("/api/sign-up",
-                data
-            )
+            const response = await axios.post<ApiResponse>('/api/sign-up', data);
+
             toast({
-                title: "Sign up successful",
+                title: 'Success',
                 description: response.data.message,
-            })
-            router.replace(`verify/${username}`)
+            });
+
+            router.replace(`/verify/${username}`);
+
             setIsSubmitting(false);
         } catch (error) {
-            console.error("Error in sign up user");
-            const axiosErr = error as AxiosError<ApiResponse>
-            let errorMessage = axiosErr.response?.data.message
-            toast({
-                title: "Error in sign up",
-                description: errorMessage ?? "Error while signing up",
-                variant: "destructive"
-            })
+            console.error('Error during sign-up:', error);
 
+            const axiosError = error as AxiosError<ApiResponse>;
+
+            // Default error message
+            let errorMessage = axiosError.response?.data.message;
+            ('There was a problem with your sign-up. Please try again.');
+
+            toast({
+                title: 'Sign Up Failed',
+                description: errorMessage,
+                variant: 'destructive',
+            });
+
+            setIsSubmitting(false);
         }
-    }
+    };
 
     return (
         <div className="flex justify-center items-center min-h-screen bg-gray-800">
@@ -118,15 +118,15 @@ function Page() {
                                         {...field}
                                         onChange={(e) => {
                                             field.onChange(e);
-                                            setUsername(e.target.value);
+                                            debounced(e.target.value);
                                         }}
                                     />
                                     {isCheckingUsername && <Loader2 className="animate-spin" />}
                                     {!isCheckingUsername && usernameMessage && (
                                         <p
                                             className={`text-sm ${usernameMessage === 'Username is unique'
-                                                    ? 'text-green-500'
-                                                    : 'text-red-500'
+                                                ? 'text-green-500'
+                                                : 'text-red-500'
                                                 }`}
                                         >
                                             {usernameMessage}
@@ -182,7 +182,18 @@ function Page() {
                 </div>
             </div>
         </div>
-    )
+    );
 }
+/*
+Zod Implementation:
+The useForm hook supports schema-based validation through built-in resolvers.
+We can use Zod (or other validation libraries) to define a validation schema and integrate it with useForm
+by using the zodResolver to validate the form inputs.
+  */
 
-export default Page
+/*
+In this scenario, we need to ensure that the username is unique. 
+To check if the username is unique, we could send a request to the backend as the user types each letter. 
+However, sending many requests for each keystroke is inefficient and can degrade performance. 
+A better approach is to use a custom React hook with debouncing, which delays the backend request until the user has stopped typing for a short period.
+*/
